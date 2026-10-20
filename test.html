@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="zh-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f5f9f8">
+<title>集點卡（測試）｜擇木良食</title>
+<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<style>
+:root{--ink:#183e40;--muted:#6a8181;--teal:#167e82;--deep:#0f696e;--aqua:#e8f5f2;--line:#dfeae7;--paper:#fff;--bg:#f5f9f8;--amber:#956422;--amber-bg:#fbf4e6;--radius:22px}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
+.wrap{max-width:430px;margin:0 auto;padding:18px 16px 40px}
+header{display:flex;align-items:center;gap:12px;padding:4px 2px 16px}
+.logo{width:44px;height:44px;border-radius:50%;background:var(--aqua);display:flex;align-items:center;justify-content:center;color:var(--deep);font-weight:700;font-size:12px;flex:none}
+header h1{font-size:20px;margin:0;line-height:1.3;letter-spacing:-.02em}
+header .sub{color:var(--muted);font-size:13px}
+.hello{margin-left:auto;text-align:right;font-size:12px;color:var(--muted)}
+.hello b{display:block;color:var(--ink);font-size:14px;font-weight:600;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.muted{color:var(--muted)}
+.flash{background:var(--amber-bg);color:var(--amber);border-radius:14px;padding:10px 14px;margin-bottom:12px;font-size:14px}
+.card{background:var(--paper);border-radius:var(--radius);padding:20px 20px 18px;margin-bottom:14px;box-shadow:0 1px 2px rgba(24,62,64,.04),0 8px 24px rgba(24,62,64,.05)}
+.card h2{font-size:16px;margin:0 0 10px;display:flex;align-items:center;gap:8px}
+.n{width:24px;height:24px;border-radius:50%;background:var(--aqua);color:var(--deep);font-size:13px;display:inline-flex;align-items:center;justify-content:center;font-weight:700}
+.hero{background:linear-gradient(160deg,var(--teal),var(--deep));color:#fff;position:relative;overflow:hidden}
+.hero:before{content:"";position:absolute;right:-50px;top:-60px;width:180px;height:180px;border-radius:50%;background:rgba(255,255,255,.08)}
+.hero .lbl{font-size:13px;opacity:.85}
+.hero .pts{font-size:56px;font-weight:700;line-height:1.05;letter-spacing:-.03em;margin:4px 0 2px}
+.hero .pts small{font-size:18px;font-weight:600;margin-left:4px;opacity:.9}
+.bar{height:10px;border-radius:99px;background:rgba(255,255,255,.22);margin:16px 0 8px;position:relative}
+.bar i{display:block;height:100%;border-radius:99px;background:#fff;transition:width .6s}
+.bar .m{position:absolute;top:-4px;width:18px;height:18px;border-radius:50%;background:#fff;border:3px solid var(--deep);transform:translateX(-50%)}
+.bar .m.dim{background:rgba(255,255,255,.5)}
+.ticks{display:flex;justify-content:space-between;font-size:12px;opacity:.9}
+.next{margin-top:12px;font-size:14px;background:rgba(255,255,255,.14);border-radius:12px;padding:9px 12px}
+.boundtag{margin-top:10px;font-size:12px;opacity:.85}
+.code{background:var(--aqua);border-radius:14px;padding:12px 14px;margin:6px 0 12px}
+.code .lbl{font-size:12px;color:var(--muted);margin-bottom:2px}
+.code .row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.code .sent{font-size:17px;font-weight:600;line-height:1.4}
+.code .sent b{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:22px;letter-spacing:3px;color:var(--deep)}
+.code button{flex:none;border:0;background:var(--paper);color:var(--deep);font-weight:600;border-radius:10px;padding:8px 12px;font-size:13px}
+.steps{margin:0;padding:0;list-style:none;font-size:14px;color:var(--muted)}
+.steps li{display:flex;gap:10px;padding:5px 0}
+.steps li i{flex:none;width:20px;height:20px;border-radius:50%;background:var(--aqua);color:var(--deep);font-style:normal;font-size:12px;display:flex;align-items:center;justify-content:center;font-weight:700;margin-top:2px}
+.steps li b{color:var(--ink);font-weight:600}
+.btn{display:flex;align-items:center;justify-content:center;width:100%;border:1.5px solid var(--line);background:var(--paper);color:var(--ink);border-radius:14px;padding:13px;font-size:15px;font-weight:600;text-decoration:none;margin-top:10px;cursor:pointer}
+.btn.primary{background:var(--teal);border-color:var(--teal);color:#fff}
+.rule{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px}
+.tier{border:1.5px solid var(--line);border-radius:14px;padding:12px;text-align:center}
+.tier .v{font-size:24px;font-weight:700;color:var(--deep)}
+.tier .v small{font-size:13px;font-weight:600}
+.tier .p{font-size:13px;color:var(--muted)}
+.tier .p b{color:var(--ink)}
+.ok{margin:12px 0 0;padding:0;list-style:none;font-size:14px}
+.ok li{display:flex;gap:9px;padding:4px 0}
+.ok li span{flex:1}
+.ok li:before{content:"✓";color:var(--teal);font-weight:700;flex:none}
+.ok li.no:before{content:"✕";color:var(--amber)}
+.ok li.no{color:var(--muted)}
+.hist{margin:0;padding:0;list-style:none}
+.hist li{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-top:1px solid var(--line);font-size:14px}
+.hist li:first-child{border-top:0}
+.hist .d{color:var(--muted);font-size:13px;width:52px}
+.hist .t{flex:1;padding:0 10px}
+.hist .p{font-weight:700;color:var(--deep)}
+.hist .p.neg{color:var(--amber)}
+.legacy{background:var(--amber-bg);color:var(--amber);border-radius:12px;padding:9px 12px;font-size:13px;margin-bottom:10px}
+.foot{text-align:center;color:var(--muted);font-size:12px;margin-top:6px;line-height:1.7}
+.foot a{color:var(--muted)}
+.loading{text-align:center;padding:60px 0;color:var(--muted)}
+.spin{width:28px;height:28px;border:3px solid var(--line);border-top-color:var(--teal);border-radius:50%;margin:0 auto 12px;animation:s 1s linear infinite}
+@keyframes s{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"><div class="loading"><div class="spin"></div>集點卡載入中…</div></div>
+<script>
+var LIFF_ID = '2007733363-XTWmiC0E';
+var API = 'https://script.google.com/macros/s/AKfycbzIpPQYOzrvtyqQuciYm8xbpcSwHej8YsarVL9QH5b-pDqXalFaevEh9LuXKHsZ_HjZeA/exec';
+var app = document.getElementById('app');
+var STATE = { idt: '' };
+
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+function header(name){ return '<header><div class="logo">擇木</div><div><h1>我的集點卡</h1><div class="sub">碳水循環社團 發文集點 <b style="color:var(--amber)">（測試版）</b></div></div>'+(name?'<div class="hello">嗨<b>'+esc(name)+'</b></div>':'')+'</header>'; }
+function msg(title, body, btn){ app.innerHTML = header('') + '<section class="card"><h2>'+esc(title)+'</h2><p class="muted">'+body+'</p>'+(btn||'')+'</section>'; }
+
+function call(api){
+  app.querySelectorAll('.btn').forEach(function(b){ b.style.opacity=.6; });
+  return fetch(API + '?api=' + api + '&idt=' + encodeURIComponent(STATE.idt), { redirect: 'follow' })
+    .then(function(r){ return r.json(); });
+}
+
+function load(api){
+  call(api || 'card').then(function(res){
+    if (!res.ok) {
+      if (res.err === 'login') {
+        var tried = false; try { tried = sessionStorage.getItem('relogin') === '1'; sessionStorage.setItem('relogin','1'); } catch (e) {}
+        if (!tried) { liff.logout(); liff.login({ redirectUri: location.href.split('?')[0] }); return; }
+        return msg('登入逾時', '請關閉這個頁面，再從 LINE 選單重新打開集點卡。');
+      }
+      try { sessionStorage.removeItem('relogin'); } catch (e) {}
+      return msg('暫時打不開', '系統忙碌中，請稍後再試一次。', '<a class="btn primary" onclick="location.reload()">重新整理</a>');
+    }
+    render(res.data, res.flash);
+  }).catch(function(){
+    msg('網路不穩', '連不到集點系統，請確認網路後再試一次。', '<a class="btn primary" onclick="location.reload()">重新整理</a>');
+  });
+}
+
+function render(d, flash){
+  var low = d.tiers[0], high = d.tiers[d.tiers.length-1];
+  var bound = d.status === '已綁定', cancelled = d.status === '已取消';
+  var pts = d.points || 0, pct = Math.min(100, Math.round(pts / high.pts * 100));
+  var next;
+  if (!bound) next = '綁定完成後會顯示你的點數。發文已經在累積，不會漏掉。';
+  else if (pts >= high.pts) next = '已達 '+high.pts+' 點，<b>可換 '+high.value+' 元折價券</b>，小編確認後會用 LINE 寄給你。';
+  else if (pts >= low.pts) next = '已達 '+low.pts+' 點，<b>可換 '+low.value+' 元折價券</b>，小編確認後會用 LINE 寄給你。再 '+(high.pts-pts)+' 點可換 '+high.value+' 元券。';
+  else next = '再 <b>'+(low.pts-pts)+' 點</b>就能換 '+low.value+' 元折價券。';
+
+  var h = header(d.name);
+  if (flash) h += '<div class="flash">'+esc(flash)+'</div>';
+
+  if (cancelled) {
+    h += '<section class="card"><h2>你已取消集點</h2><p class="muted">想重新參加，按下面的按鈕即可，之前的點數都還在。</p><a class="btn primary" onclick="load(\'resume\')">重新參加</a></section>';
+  } else {
+    h += '<section class="card hero"><div class="lbl">目前累積</div><div class="pts">'+(bound?pts:'—')+'<small>點</small></div>'
+      + '<div class="bar"><i style="width:'+pct+'%"></i><span class="m" style="left:'+Math.round(low.pts/high.pts*100)+'%"></span><span class="m dim" style="left:100%"></span></div>'
+      + '<div class="ticks"><span>0</span><span>'+low.pts+' 點 · '+low.value+' 元券</span><span>'+high.pts+' 點 · '+high.value+' 元券</span></div>'
+      + '<div class="next">'+next+'</div>'
+      + (bound ? '<div class="boundtag">已綁定 FB：'+esc(d.fbName||'')+'</div>' : '')
+      + '</section>';
+    if (!bound) {
+      h += '<section class="card"><h2><span class="n">1</span>第一次領券前，綁定一次</h2>'
+        + '<div class="code"><div class="lbl">你的綁定留言</div><div class="row"><div class="sent">我想參加碳水循環：<b>'+esc(d.code)+'</b></div><button type="button" id="cp">複製</button></div></div>'
+        + '<ul class="steps"><li><i>1</i><span>按「複製」把<b>整句</b>複製起來</span></li>'
+        + '<li><i>2</i><span>到社團置頂的<b>【集點綁定】貼文</b>底下留言貼上，要用自己的 FB 帳號</span></li>'
+        + '<li><i>3</i><span>隔天自動完成，之後都不用再綁</span></li></ul>'
+        + '<a class="btn primary" id="bindbtn">打開置頂綁定貼文</a></section>';
+    }
+    h += '<section class="card"><h2><span class="n">'+(bound?1:2)+'</span>怎麼集點</h2><div class="rule">'
+      + d.tiers.map(function(t){ return '<div class="tier"><div class="v">'+t.value+'<small> 元</small></div><div class="p"><b>'+t.pts+' 點</b>・訂單滿 '+t.min.toLocaleString('en-US')+'</div></div>'; }).join('')
+      + '</div><ul class="ok"><li><span>在社團以<b>本人名義公開</b>發有照片的打卡文或心得文</span></li><li><span>一天最多 1 點，發文隔天入帳</span></li><li class="no"><span>匿名發文、純提問、轉貼、自介不計點</span></li></ul>'
+      + '<a class="btn" id="groupbtn">前往碳水循環社團發文</a></section>';
+    if (bound) {
+      h += '<section class="card"><h2><span class="n">3</span>最近紀錄</h2>'
+        + (d.legacy ? '<div class="legacy">舊集點卡 '+d.legacy.pts+' 點已於 '+esc(d.legacy.date)+' 轉入</div>' : '')
+        + (d.history.length ? '<ul class="hist">' + d.history.map(function(r){ return '<li><span class="d">'+esc(r.d)+'</span><span class="t">'+esc(r.t)+'</span><span class="p'+(r.p<0?' neg':'')+'">'+(r.p>0?'+':'')+r.p+'</span></li>'; }).join('') + '</ul>' : '<p class="muted">還沒有紀錄。</p>')
+        + '</section>';
+    }
+  }
+  h += '<div class="foot">擇木良食 ・ 參加即同意我們記錄你在社團的發文與 LINE 識別碼，用於集點與優惠通知'
+    + (cancelled ? '' : ' ・ <a id="cancel">取消集點</a>') + '</div>';
+  app.innerHTML = h;
+
+  var open = function(url){ if (liff.isInClient()) liff.openWindow({ url: url, external: true }); else window.open(url, '_blank'); };
+  var cp = document.getElementById('cp');
+  if (cp) cp.onclick = function(){
+    var s = d.sentence, done = function(){ cp.textContent = '已複製'; setTimeout(function(){ cp.textContent = '複製'; }, 1500); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(s).then(done, fb); else fb();
+    function fb(){ var t = document.createElement('textarea'); t.value = s; document.body.appendChild(t); t.select(); try { document.execCommand('copy'); done(); } catch (e) { prompt('請長按複製', s); } document.body.removeChild(t); }
+  };
+  var bb = document.getElementById('bindbtn'); if (bb) bb.onclick = function(){ open(d.bindUrl); };
+  var gb = document.getElementById('groupbtn'); if (gb) gb.onclick = function(){ open(d.groupUrl); };
+  var cc = document.getElementById('cancel'); if (cc) cc.onclick = function(){ if (confirm('確定要取消集點嗎？')) load('cancel'); };
+}
+
+liff.init({ liffId: LIFF_ID }).then(function(){
+  if (!liff.isLoggedIn()) { liff.login({ redirectUri: location.href.split('?')[0] }); return; }
+  STATE.idt = liff.getIDToken();
+  if (!STATE.idt) { liff.logout(); liff.login({ redirectUri: location.href.split('?')[0] }); return; }
+  load('card');
+}).catch(function(e){
+  msg('打不開集點卡', '請從擇木良食體重管理的 LINE 選單打開。（' + esc(e && e.message || e) + '）');
+});
+</script>
+</body>
+</html>
