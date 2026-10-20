@@ -33,6 +33,12 @@ header .sub{color:var(--muted);font-size:13px}
 .bar .m.dim{background:rgba(255,255,255,.5)}
 .ticks{display:flex;justify-content:space-between;font-size:12px;opacity:.9}
 .next{margin-top:12px;font-size:14px;background:rgba(255,255,255,.14);border-radius:12px;padding:9px 12px}
+.pend{display:inline-block;margin-top:10px;background:#fff;color:var(--deep);font-weight:700;font-size:13px;border-radius:99px;padding:4px 12px}
+.btn.claim{background:#fff;border-color:#fff;color:var(--deep);margin-top:12px}
+.btn.claim.off{background:rgba(255,255,255,.16);border-color:transparent;color:#fff;cursor:default}
+.claimnote{font-size:12px;opacity:.8;text-align:center;margin-top:6px}
+.hist .p.wait{color:var(--amber);font-weight:600;font-size:13px}
+.hist small{font-size:12px}
 .boundtag{margin-top:10px;font-size:12px;opacity:.85}
 .code{background:var(--aqua);border-radius:14px;padding:12px 14px;margin:6px 0 12px}
 .code .lbl{font-size:12px;color:var(--muted);margin-bottom:2px}
@@ -118,6 +124,10 @@ function render(d, flash){
   else if (pts >= low.pts) next = '已達 '+low.pts+' 點，<b>可換 '+low.value+' 元折價券</b>，小編確認後會用 LINE 寄給你。再 '+(high.pts-pts)+' 點可換 '+high.value+' 元券。';
   else next = '再 <b>'+(low.pts-pts)+' 點</b>就能換 '+low.value+' 元折價券。';
 
+  var pend = d.pending || 0, done = d.postedToday || d.claimedToday;
+  var claimBtn = '<a class="btn claim'+(done?' off':'')+'" id="claimbtn">'+(d.postedToday?'✓ 今天的發文已入帳':(d.claimedToday?'✓ 今天已回報，確認中':'我今天發文了'))+'</a>';
+  var sec = 0, num = function(){ sec++; return '<span class="n">'+sec+'</span>'; };
+
   var h = header(d.name);
   if (flash) h += '<div class="flash">'+esc(flash)+'</div>';
 
@@ -127,25 +137,33 @@ function render(d, flash){
     h += '<section class="card hero"><div class="lbl">目前累積</div><div class="pts">'+(bound?pts:'—')+'<small>點</small></div>'
       + '<div class="bar"><i style="width:'+pct+'%"></i><span class="m" style="left:'+Math.round(low.pts/high.pts*100)+'%"></span><span class="m dim" style="left:100%"></span></div>'
       + '<div class="ticks"><span>0</span><span>'+low.pts+' 點 · '+low.value+' 元券</span><span>'+high.pts+' 點 · '+high.value+' 元券</span></div>'
+      + (pend ? '<div class="pend">＋'+pend+' 確認中・'+(bound?'下一次核對後入帳':'綁定後一起入帳')+'</div>' : '')
       + '<div class="next">'+next+'</div>'
+      + claimBtn
+      + '<div class="claimnote">發完文按一下，馬上幫你記著；每天 12:00、18:00、22:00 核對入帳</div>'
       + (bound ? '<div class="boundtag">已綁定 FB：'+esc(d.fbName||'')+'</div>' : '')
       + '</section>';
     if (!bound) {
-      h += '<section class="card"><h2><span class="n">1</span>第一次領券前，綁定一次</h2>'
+      h += '<section class="card"><h2>'+num()+'第一次領券前，綁定一次</h2>'
         + '<div class="code"><div class="lbl">你的綁定留言</div><div class="row"><div class="sent">我想參加碳水循環：<b>'+esc(d.code)+'</b></div><button type="button" id="cp">複製</button></div></div>'
         + '<ul class="steps"><li><i>1</i><span>按「複製」把<b>整句</b>複製起來</span></li>'
         + '<li><i>2</i><span>到社團置頂的<b>【集點綁定】貼文</b>底下留言貼上，要用自己的 FB 帳號</span></li>'
-        + '<li><i>3</i><span>隔天自動完成，之後都不用再綁</span></li></ul>'
+        + '<li><i>3</i><span>下一次核對（12:00／18:00／22:00）自動完成，之後都不用再綁</span></li></ul>'
         + '<a class="btn primary" id="bindbtn">打開置頂綁定貼文</a></section>';
     }
-    h += '<section class="card"><h2><span class="n">'+(bound?1:2)+'</span>怎麼集點</h2><div class="rule">'
+    h += '<section class="card"><h2>'+num()+'怎麼集點</h2><div class="rule">'
       + d.tiers.map(function(t){ return '<div class="tier"><div class="v">'+t.value+'<small> 元</small></div><div class="p"><b>'+t.pts+' 點</b>・訂單滿 '+t.min.toLocaleString('en-US')+'</div></div>'; }).join('')
-      + '</div><ul class="ok"><li><span>在社團以<b>本人名義公開</b>發有照片的打卡文或心得文</span></li><li><span>一天最多 1 點，發文隔天入帳</span></li><li class="no"><span>匿名發文、純提問、轉貼、自介不計點</span></li></ul>'
+      + '</div><ul class="ok"><li><span>在社團以<b>本人名義公開</b>發有照片的打卡文或心得文</span></li><li><span>一天最多 1 點，每天 12:00、18:00、22:00 核對入帳</span></li><li class="no"><span>匿名發文、純提問、轉貼、自介不計點</span></li></ul>'
       + '<a class="btn" id="groupbtn">前往碳水循環社團發文</a></section>';
-    if (bound) {
-      h += '<section class="card"><h2><span class="n">3</span>最近紀錄</h2>'
+    var cl = (d.claims || []).map(function(c){
+      var miss = c.status === '未找到';
+      return '<li><span class="d">'+esc(c.d)+'</span><span class="t">'+(miss?'沒找到這天的發文<br><small class="muted">需本人名義公開、有照片</small>':'發文回報')+'</span><span class="p '+(miss?'neg':'wait')+'">'+(miss?'未入帳':'確認中')+'</span></li>';
+    }).join('');
+    if (bound || cl) {
+      var hs = (d.history || []).map(function(r){ return '<li><span class="d">'+esc(r.d)+'</span><span class="t">'+esc(r.t)+'</span><span class="p'+(r.p<0?' neg':'')+'">'+(r.p>0?'+':'')+r.p+'</span></li>'; }).join('');
+      h += '<section class="card"><h2>'+num()+'最近紀錄</h2>'
         + (d.legacy ? '<div class="legacy">舊集點卡 '+d.legacy.pts+' 點已於 '+esc(d.legacy.date)+' 轉入</div>' : '')
-        + (d.history.length ? '<ul class="hist">' + d.history.map(function(r){ return '<li><span class="d">'+esc(r.d)+'</span><span class="t">'+esc(r.t)+'</span><span class="p'+(r.p<0?' neg':'')+'">'+(r.p>0?'+':'')+r.p+'</span></li>'; }).join('') + '</ul>' : '<p class="muted">還沒有紀錄。</p>')
+        + (cl || hs ? '<ul class="hist">' + cl + hs + '</ul>' : '<p class="muted">還沒有紀錄。</p>')
         + '</section>';
     }
   }
@@ -162,6 +180,7 @@ function render(d, flash){
   };
   var bb = document.getElementById('bindbtn'); if (bb) bb.onclick = function(){ open(d.bindUrl); };
   var gb = document.getElementById('groupbtn'); if (gb) gb.onclick = function(){ open(d.groupUrl); };
+  var cb = document.getElementById('claimbtn'); if (cb && !done) cb.onclick = function(){ cb.textContent = '記錄中…'; load('claim'); };
   var cc = document.getElementById('cancel'); if (cc) cc.onclick = function(){ if (confirm('確定要取消集點嗎？')) load('cancel'); };
 }
 
