@@ -21,6 +21,12 @@ body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,Bl
 .ttl .tst{color:var(--amber);font-weight:700}
 .ttl .ref{margin-left:auto;border:1.5px solid var(--line);background:var(--paper);color:var(--ink);border-radius:10px;padding:6px 12px;font-size:13px;font-weight:600;cursor:pointer}
 .quick{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.seg{display:flex;background:var(--paper);border:1.5px solid var(--line);border-radius:12px;padding:3px;gap:3px}
+.seg button{flex:1;border:0;background:none;border-radius:9px;padding:7px 4px;font:inherit;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer}
+.seg button.on{background:var(--teal);color:#fff}
+.seg button:focus-visible{outline:3px solid var(--teal);outline-offset:1px}
+.pill.test{background:var(--aqua);color:var(--deep)}
+.pill.prod{background:#eceaf5;color:#4b3f8f}
 .wrap{max-width:640px;margin:0 auto;padding:16px max(16px,env(safe-area-inset-right,0px)) 48px max(16px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:22px}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1.5px solid var(--line);background:var(--paper);color:var(--ink);border-radius:12px;padding:10px 12px;font-size:14px;font-weight:600;text-decoration:none;cursor:pointer;font-family:inherit;min-height:44px}
 .btn.pri{background:var(--teal);border-color:var(--teal);color:#fff}
@@ -74,6 +80,7 @@ h2 .ct.zero{background:var(--line);color:var(--muted)}
 <div class="top"><div class="in">
   <div class="ttl"><div class="logo">擇木</div><div><h1>集點後台</h1><div class="sub">碳水循環社團 發文集點 <span class="tst">（測試版）</span></div></div><button class="ref" id="ref" type="button">重新整理</button></div>
   <div class="quick"><a class="btn go" id="qGroup" href="#" target="_blank" rel="noopener">開社團</a><a class="btn" id="qBind" href="#" target="_blank" rel="noopener">開置頂綁定文</a></div>
+  <div class="seg" id="seg" role="tablist" aria-label="顯示哪個社團"><button type="button" data-v="test" class="on">測試社團</button><button type="button" data-v="prod">正式社團</button><button type="button" data-v="all">全部</button></div>
 </div></div>
 <main class="wrap" id="app"><div class="empty">載入中…</div></main>
 <div class="toast" id="toast" hidden></div>
@@ -114,7 +121,7 @@ function load(){
 function claimItem(c){
   var h = '<article class="item" data-kind="claim" data-row="' + c.row + '">';
   h += '<div class="who">' + (c.bound ? '<b>' + esc(c.fbName || '（沒有 FB 名稱）') + '</b>' : '<b>尚未綁定</b>')
-    + (c.first ? '<span class="pill first">首次</span>' : '') + (c.already ? '<span class="pill ok">今天已有 1 點</span>' : '') + '</div>';
+    + srcPill('test') + (c.first ? '<span class="pill first">首次</span>' : '') + (c.already ? '<span class="pill ok">今天已有 1 點</span>' : '') + '</div>';
   h += '<div class="meta"><span>LINE：' + esc(c.lineName || '—') + '</span><span>回報 ' + esc(md(c.date)) + ' ' + esc(String(c.time).slice(11, 16)) + '</span>'
     + (c.bound ? '<span>目前 ' + c.points + ' 點</span>' : '') + '</div>';
   if (c.bound) {
@@ -132,7 +139,7 @@ function claimItem(c){
 
 function postItem(p){
   var h = '<article class="item" data-kind="post" data-row="' + p.row + '">';
-  h += '<div class="who"><b>' + esc(p.author) + '</b>' + (p.bound ? '<span class="pill ok">已綁定</span>' : '<span class="pill first">未綁定</span>')
+  h += '<div class="who"><b>' + esc(p.author) + '</b>' + srcPill(p.src) + (p.bound ? '<span class="pill ok">已綁定</span>' : '<span class="pill first">未綁定</span>')
     + (p.suggest && p.suggest !== '計點' ? '<span class="pill warn">' + esc(p.suggest) + '</span>' : '') + '</div>';
   h += '<div class="meta"><span>發文 ' + esc(md(p.date)) + '</span>' + (p.type ? '<span>' + esc(p.type) + '</span>' : '')
     + (p.photo ? '<span>照片：' + esc(p.photo) + '</span>' : '') + '<span>目前 ' + p.points + ' 點</span></div>';
@@ -143,6 +150,9 @@ function postItem(p){
   return h + '</article>';
 }
 
+var VIEW = store('view') || 'test';
+function srcPill(s){ return s === 'prod' ? '<span class="pill prod">正式社團</span>' : s === 'test' ? '<span class="pill test">測試社團</span>' : ''; }
+function inView(s){ return VIEW === 'all' || s === VIEW; }
 var SHOW = 5, OPEN = { claim: store('shut_claim') !== '1', post: store('shut_post') !== '1' }, MORE = { claim: false, post: false };
 function section(kind, title, hint, list, itemFn, emptyText){
   var n = list.length, open = OPEN[kind], shown = MORE[kind] ? list : list.slice(0, SHOW);
@@ -157,10 +167,15 @@ function section(kind, title, hint, list, itemFn, emptyText){
 }
 function render(d){
   DATA = d;
-  document.getElementById('qGroup').href = d.groupUrl;
+  document.getElementById('qGroup').href = VIEW === 'prod' && d.prodUrl ? d.prodUrl : d.groupUrl;
+  document.getElementById('qGroup').textContent = VIEW === 'prod' ? '開正式社團' : '開社團';
+  document.querySelectorAll('#seg button').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-v') === VIEW); b.setAttribute('aria-selected', b.getAttribute('data-v') === VIEW); });
   document.getElementById('qBind').href = d.bindUrl;
-  var h = section('claim', '客人回報「我今天發文了」', '到社團確認他今天有本人、公開、有照片的發文，再按核發。', d.claims, claimItem, '目前沒有待確認的回報。');
-  h += section('post', '待審貼文', '每天核對社團時抓到、還沒決定的貼文。點標題可以收合。', d.posts, postItem, '目前沒有待審貼文。');
+  var claims = d.claims.filter(function(c){ return inView('test'); });
+  var posts = d.posts.filter(function(p){ return inView(p.src); });
+  var hiddenPosts = d.posts.length - posts.length;
+  var h = section('claim', '客人回報「我今天發文了」', '到社團確認他今天有本人、公開、有照片的發文，再按核發。', claims, claimItem, VIEW === 'prod' ? '回報功能目前只開在測試社團。' : '目前沒有待確認的回報。');
+  h += section('post', '待審貼文', '每天核對社團時抓到、還沒決定的貼文。點標題可以收合。' + (hiddenPosts ? '另有 ' + hiddenPosts + ' 篇在其他社團，切換上方選項可看。' : ''), posts, postItem, '目前沒有待審貼文。');
   h += '<p class="foot">更新於 ' + esc(d.at) + '・同一人同一天只算 1 點，和自動核對不會重複給</p>';
   app.innerHTML = h;
 }
@@ -194,23 +209,25 @@ app.addEventListener('click', function(e){
     render(res.data);
   }).catch(function(){ toast('連線失敗，請再按一次', true); load(); });
 });
+document.getElementById('seg').addEventListener('click', function(e){ var b = e.target.closest('button[data-v]'); if (!b) return; VIEW = b.getAttribute('data-v'); store('view', VIEW); if (DATA) render(DATA); });
 document.getElementById('ref').onclick = function(){ if (KEY || DEMO) { app.innerHTML = '<div class="empty">載入中…</div>'; load(); } };
 
 /* ---------- 示範模式（網址加 ?demo，不連系統、資料是假的） ---------- */
 var DEMO_DB = {
   groupUrl: 'https://www.facebook.com/groups/2249564272254513',
   bindUrl: 'https://www.facebook.com/groups/2249564272254513/posts/2251352732075667/',
+  prodUrl: 'https://www.facebook.com/groups/231085796466032',
   claims: [
     { row: 3, time: '2026-10-21 13:42', date: '2026-10-21', lineName: '小美🌿', code: 'K7Q2M9', bound: false, fbName: '', fbId: '', points: 0, first: true, already: false, memberUrl: '' },
     { row: 2, time: '2026-10-21 09:15', date: '2026-10-21', lineName: '陳季嫻', code: 'VUU3R4', bound: true, fbName: 'Hsien Chen', fbId: '100000126731937', points: 29, first: false, already: false, memberUrl: 'https://www.facebook.com/groups/2249564272254513/user/100000126731937/' }
   ],
   posts: [
-    { row: 9, date: '2026-10-21', author: '邱文亭', fbId: '100006494955336', link: 'https://www.facebook.com/groups/2249564272254513', photo: '是', type: '打卡', suggest: '計點', reason: '本人公開、有照片的午餐打卡', bound: true, points: 1, memberUrl: '' },
-    { row: 7, date: '2026-10-21', author: '張○婷', fbId: '61550000000002', link: 'https://www.facebook.com/groups/2249564272254513', photo: '是', type: '心得', suggest: '計點', reason: '本人公開、有照片的一週心得', bound: true, points: 12, memberUrl: '' },
-    { row: 6, date: '2026-10-20', author: '黃○華', fbId: '61550000000003', link: 'https://www.facebook.com/groups/2249564272254513', photo: '是', type: '打卡', suggest: '計點', reason: '本人公開、有照片的晚餐打卡', bound: true, points: 5, memberUrl: '' },
-    { row: 5, date: '2026-10-20', author: '吳○芳', fbId: '61550000000004', link: 'https://www.facebook.com/groups/2249564272254513', photo: '是', type: '打卡', suggest: '計點', reason: '本人公開、有照片的早餐打卡', bound: false, points: 0, memberUrl: '' },
-    { row: 4, date: '2026-10-20', author: '李○慧', fbId: '61550000000005', link: 'https://www.facebook.com/groups/2249564272254513', photo: '否', type: '轉貼', suggest: '不計點', reason: '轉貼文章', bound: true, points: 3, memberUrl: '' },
-    { row: 8, date: '2026-10-21', author: '林○如', fbId: '61550000000001', link: 'https://www.facebook.com/groups/2249564272254513', photo: '否', type: '提問', suggest: '不計點', reason: '純提問、沒有照片', bound: false, points: 0, memberUrl: '' }
+    { row: 9, date: '2026-10-21', author: '邱文亭', fbId: '100006494955336', link: 'https://www.facebook.com/groups/2249564272254513', photo: '是', type: '打卡', suggest: '計點', reason: '本人公開、有照片的午餐打卡', bound: true, points: 1, memberUrl: '', src: 'test' },
+    { row: 7, date: '2026-10-21', author: '張○婷', fbId: '61550000000002', link: 'https://www.facebook.com/groups/2249564272254513', photo: '是', type: '心得', suggest: '計點', reason: '本人公開、有照片的一週心得', bound: true, points: 12, memberUrl: '' , src: 'prod' },
+    { row: 6, date: '2026-10-20', author: '黃○華', fbId: '61550000000003', link: 'https://www.facebook.com/groups/2249564272254513', photo: '是', type: '打卡', suggest: '計點', reason: '本人公開、有照片的晚餐打卡', bound: true, points: 5, memberUrl: '' , src: 'prod' },
+    { row: 5, date: '2026-10-20', author: '吳○芳', fbId: '61550000000004', link: 'https://www.facebook.com/groups/2249564272254513', photo: '是', type: '打卡', suggest: '計點', reason: '本人公開、有照片的早餐打卡', bound: false, points: 0, memberUrl: '' , src: 'prod' },
+    { row: 4, date: '2026-10-20', author: '李○慧', fbId: '61550000000005', link: 'https://www.facebook.com/groups/2249564272254513', photo: '否', type: '轉貼', suggest: '不計點', reason: '轉貼文章', bound: true, points: 3, memberUrl: '' , src: 'prod' },
+    { row: 8, date: '2026-10-21', author: '林○如', fbId: '61550000000001', link: 'https://www.facebook.com/groups/2249564272254513', photo: '否', type: '提問', suggest: '不計點', reason: '純提問、沒有照片', bound: false, points: 0, memberUrl: '' , src: 'prod' }
   ]
 };
 function demoCall(p){
