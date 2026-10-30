@@ -24,7 +24,7 @@ h1{margin:0;font-size:20px;line-height:1.2}
 .code{display:flex;align-items:center;gap:10px;background:#fff;border:1px dashed var(--gold);border-radius:12px;padding:10px 12px;margin:10px 0}
 .code b{flex:1;font-family:ui-monospace,Menlo,monospace;font-size:22px;letter-spacing:2px}
 .sent{background:#fff;border:1px dashed var(--gold);border-radius:12px;padding:12px;font-size:15px;margin:10px 0;word-break:break-all}
-.btn{display:block;width:100%;border:0;border-radius:14px;padding:14px;font-size:16px;font-weight:700;text-align:center;cursor:pointer;text-decoration:none;margin-top:10px;background:#EEE7D3;color:var(--ink)}
+.btn{display:block;width:100%;border:0;font-family:inherit;-webkit-appearance:none;border-radius:14px;padding:14px;font-size:16px;font-weight:700;text-align:center;cursor:pointer;text-decoration:none;margin-top:10px;background:#EEE7D3;color:var(--ink)}
 .btn.primary{background:var(--red);color:#fff}
 .btn.dark{background:var(--ink);color:#fff}
 .btn.small{display:inline-block;width:auto;padding:8px 14px;font-size:14px;margin:0;border-radius:10px;background:var(--gold);color:#fff}
@@ -65,24 +65,35 @@ function load(api){
         if (!tried) { liff.logout(); liff.login({ redirectUri: location.href.split('?')[0] }); return; }
         return msg('登入逾時', '請關閉這個頁面，再從 LINE 選單重新打開。');
       }
-      return msg('暫時打不開', '系統忙碌中，請稍後再試一次。', '<a class="btn primary" onclick="location.reload()">重新整理</a>');
+      return msg('暫時打不開', '系統忙碌中，請稍後再試一次。', '<button type="button" class="btn primary" onclick="location.reload()">重新整理</button>');
     }
     try { sessionStorage.removeItem('relogin'); } catch (e) {}
     render(res.data, res.flash);
   }).catch(function(){
-    msg('網路不穩', '連不到系統，請確認網路後再試一次。', '<a class="btn primary" onclick="location.reload()">重新整理</a>');
+    msg('網路不穩', '連不到系統，請確認網路後再試一次。', '<button type="button" class="btn primary" onclick="location.reload()">重新整理</button>');
   });
 }
 
-function copyBtn(id, text){
+function copyBtn(id, text, srcId){
   var b = document.getElementById(id); if (!b) return;
-  b.onclick = function(){
+  b.addEventListener('click', function(ev){
+    ev.preventDefault();
     var done = function(){ b.textContent = '已複製'; setTimeout(function(){ b.textContent = '複製'; }, 1500); };
-    function fb(){ var t = document.createElement('textarea'); t.value = text; document.body.appendChild(t); t.select(); try { document.execCommand('copy'); done(); } catch (e) { prompt('請長按複製', text); } document.body.removeChild(t); }
-    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fb); else fb();
-  };
+    var manual = function(){
+      b.textContent = '請長按文字複製';
+      var src = srcId && document.getElementById(srcId);
+      if (src && window.getSelection) { var r = document.createRange(); r.selectNodeContents(src); var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r); }
+      setTimeout(function(){ b.textContent = '複製'; }, 2500);
+    };
+    var legacy = function(){
+      var t = document.createElement('textarea'); t.value = text; t.setAttribute('readonly', ''); t.style.position = 'fixed'; t.style.top = '0'; t.style.opacity = '0';
+      document.body.appendChild(t); t.focus(); t.select(); t.setSelectionRange(0, text.length);
+      var ok = false; try { ok = document.execCommand('copy'); } catch (e) {}
+      document.body.removeChild(t); ok ? done() : manual();
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, legacy); else legacy();
+  });
 }
-function open(url){ if (!url) return; if (liff.isInClient()) liff.openWindow({ url: url, external: true }); else window.open(url, '_blank'); }
 
 function render(d, flash){
   var h = header();
@@ -92,12 +103,12 @@ function render(d, flash){
     h += '<section class="card red"><h2>連續三天中碳、三天發文，完賽禮就是你的</h2>'
       + '<p class="muted">嗨 ' + esc(d.name) + '，完成挑戰了嗎？按下去立刻拿到兩份完賽禮。</p>'
       + '<ol><li>在「碳水循環 飲食自由」社團連續 3 天發文</li><li>按下方按鈕，當場拿到序號</li><li>把接力句貼到置頂文，標記下一位朋友</li></ol>'
-      + '<a class="btn primary" id="claim">我完成三天挑戰，領完賽禮</a>'
+      + '<button type="button" class="btn primary" id="claim">我完成三天挑戰，領完賽禮</button>'
       + '<p class="note">前 ' + d.max + ' 名，目前還有 ' + d.left + ' 份 ・ 領取至 ' + esc(d.end) + '<br>領取後 24 小時內請完成置頂文留言，系統會核對你的三天發文，不符的序號將失效。</p>'
       + '</section>';
     app.innerHTML = h;
     var cb = document.getElementById('claim');
-    if (cb) cb.onclick = function(){ if (d.left <= 0) return; cb.textContent = '領取中…'; load('relay_claim'); };
+    if (cb) cb.addEventListener('click', function(){ if (d.left <= 0) return; cb.textContent = '領取中…'; load('relay_claim'); });
     return;
   }
 
@@ -112,26 +123,24 @@ function render(d, flash){
   h += '<section class="card gold"><h2>第一步：到置頂文留言，把挑戰接力下去</h2>'
     + (d.commented ? '<span class="tag">已收到你的留言</span>' : '<span class="tag warn">24 小時內完成</span>')
     + '<div class="sent" id="sent">' + esc(d.sentence) + '</div>'
-    + '<button class="btn small" id="cp1">複製</button>'
-    + '<a class="btn dark" id="post">前往社團置頂文留言</a>'
+    + '<button type="button" class="btn small" id="cp1">複製</button>'
+    + '<a class="btn dark" id="post" href="' + esc(d.postUrl) + '" target="_blank" rel="noopener">前往社團置頂文留言</a>'
     + '<p class="note">把「＿公斤」改成你的數字、@ 一位朋友。末尾的 #' + esc(d.code) + ' 是你的完賽碼，請保留。</p></section>';
 
   // 完賽禮一
   h += '<section class="card red"><h2>完賽禮一：白巧草莓蛋白棒 1 盒（價值 $480）</h2>'
     + '<p class="muted">免費，不用序號。到完賽禮商店把它加入購物車就好；每單限 1 盒，運費 $100，同筆滿 $2,500 免運。</p>'
-    + '<a class="btn primary" id="bar">前往完賽禮商店</a></section>';
+    + '<a class="btn primary" id="bar" href="' + esc(d.barUrl || 'https://www.selectgoodfood.com/events/finisher-3d-k7m2q') + '" target="_blank" rel="noopener">前往完賽禮商店</a></section>';
 
   // 完賽禮二
   h += '<section class="card green"><h2>完賽禮二：NT$300 現金券</h2>'
-    + '<div class="code"><b>' + esc(d.c300) + '</b><button class="btn small" id="cp3">複製</button></div>'
+    + '<div class="code"><b id="c300">' + esc(d.c300) + '</b><button type="button" class="btn small" id="cp3">複製</button></div>'
     + '<p class="note">同一筆訂單滿 $1,500 可用，結帳時輸入這組序號。限用一次，2027/1/31 前。</p></section>';
 
   h += '<div class="foot">領取時間 ' + esc(d.at) + ' ・ 擇木良食 ・ 以上為活動獎勵，不涉及任何療效宣稱</div>';
   app.innerHTML = h;
 
-  copyBtn('cp1', d.sentence); copyBtn('cp3', d.c300);
-  var pb = document.getElementById('post'); if (pb) pb.onclick = function(){ open(d.postUrl); };
-  var bb = document.getElementById('bar'); if (bb) bb.onclick = function(){ open(d.barUrl || 'https://www.selectgoodfood.com/events/finisher-3d-k7m2q'); };
+  copyBtn('cp1', d.sentence, 'sent'); copyBtn('cp3', d.c300, 'c300');
 }
 
 liff.init({ liffId: LIFF_ID }).then(function(){
