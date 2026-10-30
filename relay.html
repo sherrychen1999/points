@@ -101,10 +101,10 @@ function render(d, flash){
 
   if (!d.claimed) {
     h += '<section class="card red"><h2>連續三天中碳、三天發文，完賽禮就是你的</h2>'
-      + '<p class="muted">嗨 ' + esc(d.name) + '，完成挑戰了嗎？按下去立刻拿到兩份完賽禮。</p>'
-      + '<ol><li>在「碳水循環 飲食自由」社團連續 3 天發文</li><li>按下方按鈕，當場拿到序號</li><li>把接力句貼到置頂文，標記下一位朋友</li></ol>'
-      + '<button type="button" class="btn primary" id="claim">我完成三天挑戰，領完賽禮</button>'
-      + '<p class="note">前 ' + d.max + ' 名，目前還有 ' + d.left + ' 份 ・ 領取至 ' + esc(d.end) + '<br>領取後 24 小時內請完成置頂文留言，系統會核對你的三天發文，不符的序號將失效。</p>'
+      + '<p class="muted">嗨 ' + esc(d.name) + '，完成挑戰了嗎？三步領取：</p>'
+      + '<ol><li>在「碳水循環 飲食自由」社團連續 3 天發文</li><li>按下方按鈕，拿到你的接力句</li><li>把接力句貼到置頂文留言，約 5 分鐘內完賽禮就送到 LINE</li></ol>'
+      + '<button type="button" class="btn primary" id="claim">我完成三天挑戰，領接力句</button>'
+      + '<p class="note">前 ' + d.max + ' 名，目前還有 ' + d.left + ' 份 ・ 領取至 ' + esc(d.end) + '<br>完賽禮：白巧草莓蛋白棒 1 盒＋NT$300 現金券。系統會核對你的三天發文，不符的序號將失效。</p>'
       + '</section>';
     app.innerHTML = h;
     var cb = document.getElementById('claim');
@@ -112,35 +112,42 @@ function render(d, flash){
     return;
   }
 
-  var voided = d.status === '已作廢';
+  var voided = d.status === '已作廢' || d.status === '逾期';
   if (voided) {
-    h += '<section class="card red"><h2>序號已失效</h2><p class="muted">我們沒有在置頂文找到你的完賽留言，或社團裡還沒有連續三天的發文紀錄，序號已取消。'
+    h += '<section class="card red"><h2>' + (d.status === '逾期' ? '領取已逾期' : '序號已失效') + '</h2><p class="muted">'
+      + (d.status === '逾期' ? '領取後 7 天內沒有在置頂文留言，這次領取已失效。' : '我們沒有在社團找到你連續三天的發文紀錄，序號已取消。')
       + (d.reason ? '<br>' + esc(d.reason) : '') + '<br>有疑問請直接在 LINE 留言給小編。</p></section>';
     app.innerHTML = h; return;
   }
 
+  var waiting = d.status === '待留言';
   // 接力句
-  h += '<section class="card gold"><h2>第一步：到置頂文留言，把挑戰接力下去</h2>'
-    + (d.commented ? '<span class="tag">已收到你的留言</span>' : '<span class="tag warn">24 小時內完成</span>')
+  h += '<section class="card gold"><h2>' + (waiting ? '最後一步：到置頂文留言，完賽禮就會送到 LINE' : '你的完賽留言') + '</h2>'
+    + (waiting ? '<span class="tag warn">還沒收到你的留言</span>' : '<span class="tag">已收到你的留言</span>')
     + '<div class="sent" id="sent">' + esc(d.sentence) + '</div>'
     + '<button type="button" class="btn small" id="cp1">複製</button>'
     + '<a class="btn dark" id="post" href="' + esc(d.postUrl) + '" target="_blank" rel="noopener">前往社團置頂文留言</a>'
-    + '<p class="note">把「＿公斤」改成你的數字、@ 一位朋友。末尾的 #' + esc(d.code) + ' 是你的完賽碼，請保留。</p></section>';
+    + '<p class="note">把「＿公斤」改成你的數字、@ 一位朋友。末尾的 #' + esc(d.code) + ' 是你的完賽碼，請保留。'
+    + (waiting ? '<br><b>留言後約 5 分鐘內</b>，LINE 會收到完賽禮商店連結和 300 元券序號，不用再回來按。' : '') + '</p></section>';
 
-  // 完賽禮一
-  h += '<section class="card red"><h2>完賽禮一：白巧草莓蛋白棒 1 盒（價值 $480）</h2>'
-    + '<p class="muted">免費，不用序號。到完賽禮商店把它加入購物車就好；每單限 1 盒，運費 $100，同筆滿 $2,500 免運。</p>'
-    + '<a class="btn primary" id="bar" href="' + esc(d.barUrl || 'https://www.selectgoodfood.com/events/finisher-3d-k7m2q') + '" target="_blank" rel="noopener">前往完賽禮商店</a></section>';
-
-  // 完賽禮二
-  h += '<section class="card green"><h2>完賽禮二：NT$300 現金券</h2>'
-    + '<div class="code"><b id="c300">' + esc(d.c300) + '</b><button type="button" class="btn small" id="cp3">複製</button></div>'
-    + '<p class="note">同一筆訂單滿 $1,500 可用，結帳時輸入這組序號。限用一次，2027/1/31 前。</p></section>';
+  if (waiting) {
+    h += '<section class="card red"><h2>完賽禮內容</h2><ul style="padding-left:20px;margin:6px 0;font-size:14px;color:var(--mute)">'
+      + '<li>白巧草莓蛋白棒 1 盒（價值 $480，免費；運費 $100，同筆滿 $2,500 免運）</li>'
+      + '<li>NT$300 現金券（同一筆訂單滿 $1,500 可用，2027/1/31 前）</li></ul>'
+      + '<p class="note">留言核對後會用 LINE 訊息送給你。</p></section>';
+  } else {
+    h += '<section class="card red"><h2>完賽禮一：白巧草莓蛋白棒 1 盒（價值 $480）</h2>'
+      + '<p class="muted">免費，不用序號。到完賽禮商店把它加入購物車就好；每單限 1 盒，運費 $100，同筆滿 $2,500 免運。</p>'
+      + '<a class="btn primary" id="bar" href="' + esc(d.barUrl || 'https://www.selectgoodfood.com/events/finisher-3d-k7m2q') + '" target="_blank" rel="noopener">前往完賽禮商店</a></section>';
+    h += '<section class="card green"><h2>完賽禮二：NT$300 現金券</h2>'
+      + '<div class="code"><b id="c300">' + esc(d.c300) + '</b><button type="button" class="btn small" id="cp3">複製</button></div>'
+      + '<p class="note">同一筆訂單滿 $1,500 可用，結帳時輸入這組序號。限用一次，2027/1/31 前。序號也已用 LINE 訊息傳給你。</p></section>';
+  }
 
   h += '<div class="foot">領取時間 ' + esc(d.at) + ' ・ 擇木良食 ・ 以上為活動獎勵，不涉及任何療效宣稱</div>';
   app.innerHTML = h;
 
-  copyBtn('cp1', d.sentence, 'sent'); copyBtn('cp3', d.c300, 'c300');
+  copyBtn('cp1', d.sentence, 'sent'); if (!waiting) copyBtn('cp3', d.c300, 'c300');
 }
 
 liff.init({ liffId: LIFF_ID }).then(function(){
