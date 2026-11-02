@@ -29,7 +29,7 @@ def load_cfg():
 def load_state():
     try:
         with open(STATE_PATH, encoding='utf-8') as f: return json.load(f)
-    except Exception: return {'sent': {}}
+    except Exception: return {'sent': {}, 'recheck': [], 'rechecked': {}}
 def save_state(st):
     with open(STATE_PATH, 'w', encoding='utf-8') as f: json.dump(st, f, ensure_ascii=False, indent=1)
 
@@ -98,15 +98,32 @@ SORT_PICK_JS = r"""
 """
 
 
-POSTDATES_JS = r"""
+SEE_MORE_JS = r"""
 () => {
-  // 社團個人頁：每篇貼文(role=article)取第一個時間連結的文字
+  // 展開貼文內文的「查看更多」，標籤常在最後被折起來
+  let n = 0;
+  for (const b of document.querySelectorAll('div[role="article"] [role="button"]')) {
+    const t = (b.innerText || '').trim();
+    if ((t === '查看更多' || t === 'See more') && b.offsetParent !== null) { try { b.click(); n++; } catch (e) {} }
+  }
+  return n;
+}
+"""
+
+POSTDATES_JS = r"""
+(tag) => {
+  // 社團個人頁：每篇貼文(role=article，不含留言)取時間連結文字＋是否帶標籤
   const out = [];
+  const tagRe = tag ? new RegExp('[#＃]\\s*' + tag) : null;
   for (const art of document.querySelectorAll('div[role="article"]')) {
+    if (art.parentElement && art.parentElement.closest('div[role="article"]')) continue; // 留言
     const a = art.querySelector('a[href*="/posts/"], a[href*="/permalink/"]');
     if (!a) continue;
     const t = (a.getAttribute('aria-label') || a.innerText || '').trim();
-    if (t) out.push(t);
+    if (!t) continue;
+    const txt = art.innerText || '';
+    const hrefTag = tag && Array.from(art.querySelectorAll('a[href*="/hashtag/"]')).some(h => decodeURIComponent(h.getAttribute('href') || '').indexOf('/hashtag/' + tag) >= 0);
+    out.push({ t: t, tagged: !tagRe || tagRe.test(txt) || !!hrefTag });
   }
   return out;
 }
@@ -117,8 +134,12 @@ def parse_fb_time(t, now):
     import re as _re
     from datetime import timedelta
     t = t.replace(' ', '')
-    if _re.search(r'(剛剛|分鐘前|小時前|小時|分鐘)', t) or t in ('剛剛',):
+    if t.startswith('剛剛'):
         return now.strftime('%Y-%m-%d')
+    m = _re.match(r'(\d+)分鐘', t)
+    if m: return (now - timedelta(minutes=int(m.group(1)))).strftime('%Y-%m-%d')
+    m = _re.match(r'(\d+)小時', t)
+    if m: return (now - timedelta(hours=int(m.group(1)))).strftime('%Y-%m-%d')
     if t.startswith('昨天'):
         return (now - timedelta(days=1)).strftime('%Y-%m-%d')
     m = _re.match(r'(\d+)天前', t)
@@ -143,12 +164,16 @@ def member_post_dates(page, cfg, fb_id):
         page.wait_for_timeout(3500)
         for _ in range(int(cfg.get('PROFILE_SCROLLS', 3))):
             page.mouse.wheel(0, 2500); page.wait_for_timeout(1500)
-        raw = page.evaluate(POSTDATES_JS)
+        try:
+            if page.evaluate(SEE_MORE_JS): page.wait_for_timeout(1200)
+        except Exception: pass
+        raw = page.evaluate(POSTDATES_JS, cfg.get('TAG', '中碳日'))
     except Exception as e:
         log(f'讀 {fb_id} 的發文頁失敗：{e!r}'); return []
     now = datetime.now()
-    ds = sorted({d for d in (parse_fb_time(t, now) for t in raw) if d})
-    log(f'  {fb_id} 的發文日期：{",".join(ds) if ds else "（讀不到）"}  原始：{raw[:6]}')
+    ds = sorted({d for d in (parse_fb_time(x['t'], now) for x in raw if x['tagged']) if d})
+    skipped = sum(1 for x in raw if not x['tagged'])
+    log(f'  {fb_id} 帶標籤的發文日期：{",".join(ds) if ds else "（沒有）"}；沒帶標籤 {skipped} 篇')
     return ds
 
 def scan_once(page, cfg):
@@ -168,6 +193,29 @@ def scan_once(page, cfg):
         if not n: break
         page.wait_for_timeout(2000)
     return page.evaluate(EXTRACT_JS)
+
+def recheck_due(page, cfg, st):
+    """核對中（還沒滿連續 3 天）的人：每 RECHECK_MIN 分鐘重讀一次發文，滿了後端就發券"""
+    items = st.get('recheck') or []
+    if not items: return
+    last = st.setdefault('rechecked', {})
+    gap = int(cfg.get('RECHECK_MIN', 60)) * 60
+    due = [x for x in items if time.time() - last.get(x.split('｜')[0], 0) >= gap][:int(cfg.get('RECHECK_MAX', 10))]
+    if not due: return
+    when = datetime.now().strftime('%Y-%m-%d %H:%M')
+    lines = []
+    for x in due:
+        f = x.split('｜')
+        ds = member_post_dates(page, cfg, f[1]) if len(f) > 1 and f[1] else []
+        lines.append(f"{f[0]}｜{f[1] if len(f) > 1 else ''}｜{f[2] if len(f) > 2 else ''}｜{when}｜{','.join(ds)}")
+        last[f[0]] = time.time()
+    res = send(cfg, 'relay_comment', ';;'.join(lines))
+    log(f'重新核對 {len(due)} 人 → 後端：{res[:200]}')
+    try:
+        j = json.loads(res)
+        if j.get('ok'): st['recheck'] = j.get('recheck', [])
+    except Exception: pass
+    save_state(st)
 
 def wait_login(page):
     log('請在開啟的瀏覽器視窗登入 Facebook（a0937 金鶯診所帳號）。登入完成後不用做別的事，程式會自己繼續。')
@@ -208,10 +256,12 @@ def main():
                         j = json.loads(res)
                         if j.get('ok'):
                             for c in new: st['sent'][c['code']] = when
+                            st['recheck'] = j.get('recheck', [])
                             save_state(st)
                     except Exception: pass
                 else:
                     log(f'留言含完賽碼 {len(found)} 則，沒有新的。')
+                recheck_due(page, cfg, st)
             except Exception as e:
                 log(f'這輪出錯：{e!r}，{cfg["INTERVAL_SEC"]} 秒後重試')
             time.sleep(int(cfg['INTERVAL_SEC']))
