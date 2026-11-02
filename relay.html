@@ -37,6 +37,8 @@ li{margin:4px 0}
 .spin{width:28px;height:28px;border:3px solid var(--line);border-top-color:var(--gold);border-radius:50%;margin:0 auto 12px;animation:s 1s linear infinite}
 @keyframes s{to{transform:rotate(360deg)}}
 .flash{background:#FFF4D6;border:1px solid #F0D58A;border-radius:12px;padding:10px 14px;margin-bottom:12px;font-weight:700}
+.step{display:flex;align-items:center;gap:8px;font-weight:700;margin:12px 0 4px}
+.num{flex:none;width:24px;height:24px;border-radius:50%;background:var(--green);color:#fff;font-size:13px;display:flex;align-items:center;justify-content:center}
 .foot{font-size:12px;color:var(--mute);margin-top:20px;text-align:center}
 </style>
 </head>
@@ -55,7 +57,7 @@ function msg(title, body, btn){ app.innerHTML = header() + '<section class="card
 
 function call(api){
   app.querySelectorAll('.btn').forEach(function(b){ b.style.opacity=.6; b.style.pointerEvents='none'; });
-  return fetch(API + '?api=' + api + '&idt=' + encodeURIComponent(STATE.idt), { redirect: 'follow' }).then(function(r){ return r.json(); });
+  return fetch(API + '?api=' + api + '&idt=' + encodeURIComponent(STATE.idt) + frParam(), { redirect: 'follow' }).then(function(r){ return r.json(); });
 }
 function load(api){
   call(api || 'relay').then(function(res){
@@ -63,7 +65,7 @@ function load(api){
       if (res.err === 'login') {
         var tried = false; try { tried = sessionStorage.getItem('relogin') === '1'; sessionStorage.setItem('relogin','1'); } catch (e) {}
         if (!tried) { liff.logout(); liff.login({ redirectUri: location.href.split('?')[0] }); return; }
-        return msg('登入逾時', '請關閉這個頁面，再從 LINE 選單重新打開。');
+        return msg('登入逾時', '請關閉這個頁面，再從社團置頂文的連結重新打開。');
       }
       return msg('暫時打不開', '系統忙碌中，請稍後再試一次。', '<button type="button" class="btn primary" onclick="location.reload()">重新整理</button>');
     }
@@ -74,11 +76,11 @@ function load(api){
   });
 }
 
-function copyBtn(id, text, srcId){
+function copyBtn(id, text, srcId, after){
   var b = document.getElementById(id); if (!b) return;
   b.addEventListener('click', function(ev){
     ev.preventDefault();
-    var done = function(){ b.textContent = '已複製'; setTimeout(function(){ b.textContent = '複製'; }, 1500); };
+    var done = function(){ b.textContent = '已複製'; if (after) after(); setTimeout(function(){ b.textContent = '複製'; }, 1500); };
     var manual = function(){
       b.textContent = '請長按文字複製';
       var src = srcId && document.getElementById(srcId);
@@ -96,15 +98,17 @@ function copyBtn(id, text, srcId){
 }
 
 function render(d, flash){
+  LAST = d || {};
   var h = header();
   if (flash) h += '<div class="flash">' + esc(flash) + '</div>';
 
   if (!d.claimed) {
     h += '<section class="card red"><h2>連續三天中碳、三天發文，完賽禮就是你的</h2>'
       + '<p class="muted">嗨 ' + esc(d.name) + '，完成挑戰了嗎？三步領取：</p>'
-      + '<ol><li>在「碳水循環 飲食自由」社團連續 3 天發文</li><li>按下方按鈕，拿到你的接力句</li><li>把接力句貼到置頂文留言，約 5 分鐘內完賽禮就送到 LINE</li></ol>'
+      + '<ol><li>11/4 起在「碳水循環 飲食自由」社團連續 3 天發文，每篇都加上 <b>#中碳日</b></li><li>按下方按鈕，拿到你的接力句</li><li>把接力句貼到置頂文留言，系統核對完成後，完賽禮就會出現在這一頁</li></ol>'
       + '<button type="button" class="btn primary" id="claim">我完成三天挑戰，領接力句</button>'
-      + '<p class="note">前 ' + d.max + ' 名，目前還有 ' + d.left + ' 份 ・ 領取至 ' + esc(d.end) + '<br>完賽禮：白巧草莓蛋白棒 1 盒＋NT$300 現金券。系統會核對你的三天發文，不符的序號將失效。</p>'
+      + '<p class="note" style="font-size:12px">領取即表示同意擇木良食為活動核對與通知，使用你的 LINE 及社團公開資料。</p>'
+      + '<p class="note">前 ' + d.max + ' 名，目前還有 ' + d.left + ' 份 ・ 領取至 ' + esc(d.end) + '<br>完賽禮：白巧草莓蛋白棒 1 盒＋NT$300 現金券。系統確認你連續三天發文後才會發出。</p>'
       + '</section>';
     app.innerHTML = h;
     var cb = document.getElementById('claim');
@@ -112,51 +116,100 @@ function render(d, flash){
     return;
   }
 
-  var voided = d.status === '已作廢' || d.status === '逾期';
-  if (voided) {
-    h += '<section class="card red"><h2>' + (d.status === '逾期' ? '領取已逾期' : '序號已失效') + '</h2><p class="muted">'
-      + (d.status === '逾期' ? '領取後 7 天內沒有在置頂文留言，這次領取已失效。' : '我們沒有在社團找到你連續三天的發文紀錄，序號已取消。')
+  var failed = d.status === '已作廢' || d.status === '逾期' || d.status === '未通過';
+  if (failed) {
+    h += '<section class="card red"><h2>' + (d.status === '逾期' ? '領取已逾期' : '這次沒有通過核對') + '</h2><p class="muted">'
+      + (d.status === '逾期' ? '領取後 7 天內沒有在置頂文留言，這次領取已失效。' : '我們沒有在社團找到你連續三天、帶 #中碳日 的發文紀錄。')
       + (d.reason ? '<br>' + esc(d.reason) : '') + '<br>有疑問請直接在 LINE 留言給小編。</p></section>';
     app.innerHTML = h; return;
   }
 
-  var waiting = d.status === '待留言';
+  var waiting = d.status === '待留言', checking = d.status === '核對中', done = !waiting && !checking;
   // 接力句
-  h += '<section class="card gold"><h2>' + (waiting ? '最後一步：到置頂文留言，完賽禮就會送到 LINE' : '你的完賽留言') + '</h2>'
-    + (waiting ? '<span class="tag warn">還沒收到你的留言</span>' : '<span class="tag">已收到你的留言</span>')
+  h += '<section class="card gold"><h2>' + (waiting ? '最後一步：到置頂文留言' : checking ? '已收到留言，核對中' : '你的完賽留言') + '</h2>'
+    + (waiting ? '<span class="tag warn">還沒收到你的留言</span>' : checking ? '<span class="tag warn">還沒滿連續 3 天</span>' : '<span class="tag">完賽確認</span>')
     + '<div class="sent" id="sent">' + esc(d.sentence) + '</div>'
     + '<button type="button" class="btn small" id="cp1">複製</button>'
-    + '<a class="btn dark" id="post" href="' + esc(d.postUrl) + '" target="_blank" rel="noopener">前往社團置頂文留言</a>'
-    + '<p class="note">把「＿公斤」改成你的數字、@ 一位朋友。末尾的 #' + esc(d.code) + ' 是你的完賽碼，請保留。'
-    + (waiting ? '<br><b>留言後約 5 分鐘內</b>，LINE 會收到完賽禮商店連結和 300 元券序號，不用再回來按。' : '') + '</p></section>';
+    + (done ? '' : '<a class="btn dark" id="post" href="' + esc(d.postUrl) + '" target="_blank" rel="noopener">前往社團置頂文' + (waiting ? '留言' : '') + '</a>')
+    + '<p class="note">' + (waiting ? '把「＿公斤」改成你的數字、@ 一位朋友。末尾的 #' + esc(d.code) + ' 是你的完賽碼，請保留。<br><b>留言後約 5 分鐘</b>，回到這頁就會看到結果（停在這頁會自動更新）。' : '')
+    + (checking ? '系統讀到的發文：' + esc(d.reason || '') + '<br>11/4 起連續 3 天發文、每篇加 <b>#中碳日</b>，系統每小時重新核對，達成後這頁就會出現完賽禮，不用再留言。' : '')
+    + '</p></section>';
 
-  if (waiting) {
+  if (!done) {
     h += '<section class="card red"><h2>完賽禮內容</h2><ul style="padding-left:20px;margin:6px 0;font-size:14px;color:var(--mute)">'
       + '<li>白巧草莓蛋白棒 1 盒（價值 $480，免費；運費 $100，同筆滿 $2,500 免運）</li>'
       + '<li>NT$300 現金券（同一筆訂單滿 $1,500 可用，2027/1/31 前）</li></ul>'
-      + '<p class="note">留言核對後會用 LINE 訊息送給你。</p></section>';
+      + '<p class="note">確認完賽後，商店連結和序號會出現在這一頁；有加擇木良食官方 LINE 好友的人也會收到訊息。</p></section>';
   } else {
-    h += '<section class="card red"><h2>完賽禮一：白巧草莓蛋白棒 1 盒（價值 $480）</h2>'
-      + '<p class="muted">免費，不用序號。到完賽禮商店把它加入購物車就好；每單限 1 盒，運費 $100，同筆滿 $2,500 免運。</p>'
-      + '<a class="btn primary" id="bar" href="' + esc(d.barUrl || 'https://www.selectgoodfood.com/events/finisher-3d-k7m2q') + '" target="_blank" rel="noopener">前往完賽禮商店</a></section>';
-    h += '<section class="card green"><h2>完賽禮二：NT$300 現金券</h2>'
+    h += '<section class="card green"><h2>完賽禮兩步領取</h2>'
+      + '<p class="step"><span class="num">1</span>先複製 NT$300 現金券序號</p>'
       + '<div class="code"><b id="c300">' + esc(d.c300) + '</b><button type="button" class="btn small" id="cp3">複製</button></div>'
-      + '<p class="note">同一筆訂單滿 $1,500 可用，結帳時輸入這組序號。限用一次，2027/1/31 前。序號也已用 LINE 訊息傳給你。</p></section>';
+      + '<p class="note" style="margin-top:0">同一筆訂單滿 $1,500 可用，結帳時貼上。限用一次，2027/1/31 前。</p>'
+      + '<p class="step"><span class="num">2</span>到完賽禮商店，領白巧草莓蛋白棒 1 盒（價值 $480，免費）</p>'
+      + '<a class="btn primary" id="bar" href="' + esc(d.barUrl || 'https://www.selectgoodfood.com/events/finisher-3d-k7m2q') + '" target="_blank" rel="noopener">前往完賽禮商店</a>'
+      + '<p class="note">會用手機瀏覽器打開。蛋白棒加入購物車即可（每單限 1 盒）；運費 $100，同筆滿 $2,500 免運。結帳時在優惠碼欄貼上第 1 步的序號。</p></section>';
   }
 
+  h += '<div id="oa"></div>';
   h += '<div class="foot">領取時間 ' + esc(d.at) + ' ・ 擇木良食 ・ 以上為活動獎勵，不涉及任何療效宣稱</div>';
   app.innerHTML = h;
 
-  copyBtn('cp1', d.sentence, 'sent'); if (!waiting) copyBtn('cp3', d.c300, 'c300');
+  copyBtn('cp1', d.sentence, 'sent');
+  showOA();
+  if (done) {
+    copyBtn('cp3', d.c300, 'c300', function(){ var bar = document.getElementById('bar'); if (bar) { bar.textContent = '已複製序號 → 前往完賽禮商店'; bar.scrollIntoView({ behavior: 'smooth', block: 'center' }); } });
+    var bar = document.getElementById('bar');
+    if (bar) bar.addEventListener('click', function(ev){
+      // 用手機預設瀏覽器打開（繞過 LINE 內建瀏覽器，結帳貼序號比較順）
+      try { if (window.liff && liff.isInClient && liff.isInClient()) { ev.preventDefault(); liff.openWindow({ url: bar.href, external: true }); } } catch (e) {}
+    });
+  }
+  autoRefresh(!done);
 }
+
+// 待留言／核對中時，停在頁面上每 30 秒自動檢查一次（最多 30 分鐘）
+var POLL = { t: null, n: 0 };
+function autoRefresh(on){
+  clearTimeout(POLL.t); if (!on || POLL.n >= 60) return;
+  POLL.t = setTimeout(function(){
+    if (document.hidden) return autoRefresh(true);
+    POLL.n++;
+    fetch(API + '?api=relay&idt=' + encodeURIComponent(STATE.idt) + frParam(), { redirect: 'follow' }).then(function(r){ return r.json(); }).then(function(res){
+      if (!res.ok) return autoRefresh(true);
+      var d = res.data;
+      if (d.status !== LAST.status || d.reason !== LAST.reason) render(d, d.status === '已領' ? '🎉 確認完賽！完賽禮送到了' : ''); else autoRefresh(true);
+    }).catch(function(){ autoRefresh(true); });
+  }, 30000);
+}
+var LAST = {};
+
+// 還不是官方 LINE 好友才顯示「加入官方 LINE 接收最新消息」
+var OA_URL = 'https://lin.ee/V11t7yx', IS_FRIEND = null;
+function showOA(){
+  var box = document.getElementById('oa'); if (!box) return;
+  var paint = function(){
+    if (IS_FRIEND) { box.innerHTML = ''; return; }
+    box.innerHTML = '<section class="card"><h2>加入官方 LINE 接收最新消息</h2>'
+      + '<p class="muted">下一場挑戰、會員活動和限時優惠，第一時間通知你。</p>'
+      + '<a class="btn dark" href="' + OA_URL + '" target="_blank" rel="noopener">加入擇木良食官方 LINE</a></section>';
+  };
+  if (IS_FRIEND !== null) return paint();
+  checkFriend().then(paint);
+}
+function checkFriend(){
+  try {
+    return liff.getFriendship().then(function(f){ IS_FRIEND = !!(f && f.friendFlag); }, function(){ IS_FRIEND = null; });
+  } catch (e) { IS_FRIEND = null; return Promise.resolve(); }
+}
+function frParam(){ return IS_FRIEND === true ? '&fr=1' : IS_FRIEND === false ? '&fr=0' : ''; }
 
 liff.init({ liffId: LIFF_ID }).then(function(){
   if (!liff.isLoggedIn()) { liff.login({ redirectUri: location.href.split('?')[0] }); return; }
   STATE.idt = liff.getIDToken();
   if (!STATE.idt) { liff.logout(); liff.login({ redirectUri: location.href.split('?')[0] }); return; }
-  load('relay');
+  checkFriend().then(function(){ load('relay'); });
 }).catch(function(e){
-  msg('打不開', '請從擇木良食體重管理的 LINE 選單打開。（' + esc(e && e.message || e) + '）');
+  msg('打不開', '請從社團置頂文的連結重新打開。（' + esc(e && e.message || e) + '）');
 });
 </script>
 </body>
