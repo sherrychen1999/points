@@ -268,6 +268,42 @@ FEED_JS = r"""
 }
 """
 
+FEED_PROBE_JS = r"""
+() => {
+  const sels = { feedChild: 'div[role="feed"] > div', posinset: '[aria-posinset]', article: 'div[role="article"]', feed: 'div[role="feed"]', dialog: '[role="dialog"]' };
+  const out = { counts: {}, posts: [] };
+  for (const k in sels) out.counts[k] = document.querySelectorAll(sels[k]).length;
+  const list = Array.from(document.querySelectorAll('[aria-posinset]')).length ? Array.from(document.querySelectorAll('[aria-posinset]')) : Array.from(document.querySelectorAll('div[role="feed"] > div'));
+  for (const p of list.slice(0, 6)) {
+    const hs = Array.from(p.querySelectorAll('a')).map(a => a.getAttribute('href') || '#');
+    out.posts.push({ tag: p.tagName + '.' + (p.getAttribute('role') || '') + '.' + (p.getAttribute('aria-posinset') || ''), head: (p.innerText || '').replace(/\s+/g, ' ').slice(0, 40),
+      nA: hs.length, nHash: hs.filter(h => h === '#' || h === '').length,
+      keep: hs.filter(h => /posts|permalink|user|pcb|hashtag|multi_permalinks|story_fbid/.test(h)).map(h => h.replace(/\?.*$/, '').slice(0, 70)).slice(0, 8) });
+  }
+  return out;
+}
+"""
+
+def close_dialogs(page):
+    try:
+        page.keyboard.press('Escape'); page.wait_for_timeout(600)
+        page.evaluate("""() => { for (const b of document.querySelectorAll('[role="dialog"] [aria-label="關閉"], [role="dialog"] [aria-label="Close"]')) { try { b.click(); } catch (e) {} } }""")
+        page.wait_for_timeout(600)
+    except Exception: pass
+
+def feed_probe(page, cfg):
+    m = re.search(r'/groups/(\d+)', cfg['POST_URL'])
+    page.goto(f'https://www.facebook.com/groups/{m.group(1)}/?sorting_setting=CHRONOLOGICAL', wait_until='domcontentloaded', timeout=60000)
+    page.wait_for_timeout(5000); close_dialogs(page)
+    for i in range(3):
+        page.mouse.wheel(0, 1500); page.wait_for_timeout(2000)
+        page.evaluate(FEED_HOVER_JS); page.wait_for_timeout(1000)
+        r = page.evaluate(FEED_PROBE_JS)
+        log(f"第 {i+1} 次：{r['counts']}")
+        for x in r['posts']:
+            log(f"  {x['tag']} a={x['nA']} #={x['nHash']} | {x['head']}")
+            for h in x['keep']: log(f"      {h}")
+
 def feed_due(cfg, st):
     """該不該掃社團：凌晨 1–7 點不掃；兩次之間隔 FEED_MIN±10 分鐘（隨機）；被 FB 擋過就不掃"""
     import random
@@ -285,6 +321,7 @@ def feed_scan(page, cfg, st, test=False):
     st['feed_next'] = time.time() + 60 * (int(cfg.get('FEED_MIN', 60)) + random.randint(-10, 10))
     page.goto(f'https://www.facebook.com/groups/{gid}/?sorting_setting=CHRONOLOGICAL', wait_until='domcontentloaded', timeout=60000)
     page.wait_for_timeout(5000)
+    close_dialogs(page)
     if 'checkpoint' in page.url or 'login' in page.url or page.locator('input[name="email"]').count() > 0:
         st['feed_blocked'] = datetime.now().strftime('%Y-%m-%d %H:%M'); save_state(st)
         log('掃社團時 FB 要求驗證／登入，先停止掃社團（置頂文照常）。處理好後刪掉 state.json 裡的 feed_blocked 再重啟。')
@@ -357,6 +394,8 @@ def main():
         ctx = p.chromium.launch_persistent_context(PROFILE, headless=False, locale='zh-TW',
                                                    viewport={'width': 1100, 'height': 900}, args=['--disable-blink-features=AutomationControlled'])
         page = ctx.pages[0] if ctx.pages else ctx.new_page()
+        if '--feedprobe' in sys.argv:
+            feed_probe(page, cfg); input('按 Enter 離開'); return
         if '--feedtest' in sys.argv:
             log('測試：掃一次社團最新貼文，只印結果、不送出。')
             feed_scan(page, cfg, st, test=True); input('按 Enter 離開'); return
