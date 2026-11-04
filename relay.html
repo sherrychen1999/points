@@ -51,6 +51,16 @@ var API = 'https://script.google.com/macros/s/AKfycbymGUr6lgUEQ22SiA291vBEoNM_dV
 var app = document.getElementById('app');
 var STATE = { idt: '' };
 
+// 點擊紀錄：只送步驟、來源和這次開啟的隨機代號，不含任何個資
+var SID = (function(){ try { var v = sessionStorage.getItem('relay_sid'); if (!v) { v = Math.random().toString(36).slice(2, 12); sessionStorage.setItem('relay_sid', v); } return v; } catch (e) { return Math.random().toString(36).slice(2, 12); } })();
+var SENT = {};
+function srcOf(){ var ua = navigator.userAgent || ''; try { if (window.liff && liff.isInClient && liff.isInClient()) return 'line'; } catch (e) {} if (/Instagram/i.test(ua)) return 'ig'; if (/FBAN|FBAV|FB_IAB|FBIOS/i.test(ua)) return 'fb'; if (/ Line\//i.test(ua)) return 'line'; return 'web'; }
+function track(step){
+  var k = 'relay_t_' + step;
+  try { if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, '1'); } catch (e) { if (SENT[step]) return; SENT[step] = 1; }
+  try { fetch(API + '?api=relay_open&s=' + step + '&src=' + srcOf() + '&sid=' + SID, { mode: 'no-cors' }); } catch (e) {}
+}
+
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
 function header(){ return '<header><div class="logo">擇木</div><div><h1>三日中碳接力賽</h1><div class="sub">第二屆 ・ 完賽禮領取</div></div></header>'; }
 function msg(title, body, btn){ app.innerHTML = header() + '<section class="card gold"><h2>'+esc(title)+'</h2><p class="muted">'+body+'</p>'+(btn||'')+'</section>'; }
@@ -70,6 +80,7 @@ function load(api){
       return msg('暫時打不開', '系統忙碌中，請稍後再試一次。', '<button type="button" class="btn primary" onclick="location.reload()">重新整理</button>');
     }
     try { sessionStorage.removeItem('relogin'); } catch (e) {}
+    if (api === 'relay_claim' && res.data && res.data.claimed) track('claim');
     render(res.data, res.flash);
   }).catch(function(){
     msg('網路不穩', '連不到系統，請確認網路後再試一次。', '<button type="button" class="btn primary" onclick="location.reload()">重新整理</button>');
@@ -222,19 +233,25 @@ function showOpenInLine(){
     + '<button type="button" class="btn" id="weblogin">用 LINE 帳號密碼登入</button>'
     + '</section>';
   copyBtn('cpl', lineUrl, 'lurl');
+  track('gate');
+  var wk = document.getElementById('wake');
+  if (wk) wk.addEventListener('click', function(){ track('wake'); });
   var w = document.getElementById('weblogin');
   if (w) w.addEventListener('click', function(){ liff.login({ redirectUri: location.href.split('?')[0] }); });
 }
 
 liff.init({ liffId: LIFF_ID }).then(function(){
+  track('open');
   if (!liff.isLoggedIn()) {
     if (!liff.isInClient() && inAppBrowser()) { showOpenInLine(); return; }
     liff.login({ redirectUri: location.href.split('?')[0] }); return;
   }
   STATE.idt = liff.getIDToken();
   if (!STATE.idt) { liff.logout(); liff.login({ redirectUri: location.href.split('?')[0] }); return; }
+  track('login');
   checkFriend().then(function(){ load('relay'); });
 }).catch(function(e){
+  track('open');
   msg('打不開', '請從社團置頂文的連結重新打開。（' + esc(e && e.message || e) + '）');
 });
 </script>
