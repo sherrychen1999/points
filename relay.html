@@ -58,7 +58,7 @@ function srcOf(){ var ua = navigator.userAgent || ''; try { if (window.liff && l
 function track(step){
   var k = 'relay_t_' + step;
   try { if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, '1'); } catch (e) { if (SENT[step]) return; SENT[step] = 1; }
-  try { fetch(API + '?api=relay_open&s=' + step + '&src=' + srcOf() + '&sid=' + SID, { mode: 'no-cors' }); } catch (e) {}
+  try { fetch(API + '?api=relay_open&s=' + step + '&src=' + srcOf() + '&vid=' + SID, { mode: 'no-cors' }); } catch (e) {}
 }
 
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
