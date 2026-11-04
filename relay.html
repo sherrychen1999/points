@@ -206,15 +206,20 @@ function frParam(){ return IS_FRIEND === true ? '&fr=1' : IS_FRIEND === false ? 
 // 臉書／IG 內建瀏覽器叫不出 LINE App，會卡在 LINE 網頁登入：先提示改用 LINE 或外部瀏覽器開啟
 function inAppBrowser(){ var ua = navigator.userAgent || ''; return /FBAN|FBAV|FB_IAB|FBIOS|Instagram|Threads/i.test(ua) && !/ Line\//i.test(ua); }
 function showOpenInLine(){
+  var ua = navigator.userAgent || '';
+  var android = /Android/i.test(ua);
+  // 叫醒 LINE：Android 用 intent（沒裝 LINE 會去商店），iPhone 用 line:// 
+  var wake = android ? 'intent://app/' + LIFF_ID + '#Intent;scheme=line;package=jp.naver.line.android;end' : 'line://app/' + LIFF_ID;
   var lineUrl = 'https://line.me/R/app/' + LIFF_ID;
   app.innerHTML = header()
-    + '<section class="card red"><h2>請用 LINE 打開這一頁</h2>'
-    + '<p class="muted">你現在是在臉書裡開啟，臉書沒辦法直接叫出 LINE，會要你輸入 LINE 帳號密碼。請用下面任一種方式：</p>'
-    + '<a class="btn primary" href="line://app/' + LIFF_ID + '">用 LINE 開啟</a>'
-    + '<ol style="margin-top:14px"><li>按畫面右上角「<b>⋯</b>」</li><li>選「<b>使用外部瀏覽器開啟</b>」</li><li>手機會自動跳到 LINE，完成後回到這頁</li></ol>'
-    + '<p class="note">也可以複製這個連結，貼到 LINE 任一個聊天室後點開：</p>'
+    + '<section class="card red"><h2>點下面按鈕，用 LINE 領取</h2>'
+    + '<a class="btn primary" id="wake" href="' + wake + '" style="background:#06C755;font-size:18px;padding:18px">打開 LINE 領取 ▶</a>'
+    + '<p class="note">跳出「要在 LINE 中開啟嗎？」請按「開啟」。</p>'
+    + '<p class="muted" style="margin-top:14px">按了沒反應？</p>'
+    + '<ol><li>按畫面右上角「<b>⋯</b>」</li><li>選「<b>使用外部瀏覽器開啟</b>」，會自動跳到 LINE</li></ol>'
+    + '<p class="note">或複製這個連結，貼到 LINE 任一個聊天室點開：</p>'
     + '<div class="code"><b id="lurl" style="font-size:13px;letter-spacing:0;word-break:break-all">' + lineUrl + '</b><button type="button" class="btn small" id="cpl">複製</button></div>'
-    + '<button type="button" class="btn" id="weblogin">我記得 LINE 帳號密碼，用網頁登入</button>'
+    + '<button type="button" class="btn" id="weblogin">用 LINE 帳號密碼登入</button>'
     + '</section>';
   copyBtn('cpl', lineUrl, 'lurl');
   var w = document.getElementById('weblogin');
