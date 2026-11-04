@@ -217,6 +217,128 @@ def recheck_due(page, cfg, st):
     except Exception: pass
     save_state(st)
 
+# ---------- 每小時看一次社團最新貼文，記下 #中碳日（儀表板當天就有參與人數） ----------
+FEED_HOVER_JS = r"""
+() => {
+  // FB 的貼文時間連結要滑過才會有網址：對每篇貼文裡還沒網址的連結送滑鼠事件
+  let n = 0;
+  for (const post of document.querySelectorAll('div[role="feed"] > div')) {
+    if (!(post.innerText || '').trim()) continue;
+    for (const a of post.querySelectorAll('a[role="link"]')) {
+      const h = a.getAttribute('href') || '';
+      if (h === '#' || h === '' ) {
+        for (const ev of ['mouseover', 'mouseenter', 'focus']) { try { a.dispatchEvent(new MouseEvent(ev, { bubbles: true })); } catch (e) {} }
+        n++;
+      }
+    }
+  }
+  return n;
+}
+"""
+FEED_JS = r"""
+(args) => {
+  const tag = args.tag, gid = args.gid;
+  const tagRe = new RegExp('[#＃]\\s*' + tag);
+  const out = [];
+  for (const post of document.querySelectorAll('div[role="feed"] > div')) {
+    const txt = post.innerText || '';
+    if (!txt.trim()) continue;
+    let pid = '', tlab = '', fb = '', name = '';
+    for (const a of post.querySelectorAll('a[href]')) {
+      const h = a.getAttribute('href') || '';
+      let m = h.match(/\/groups\/[^/?]+\/(?:posts|permalink)\/(\d+)/);
+      if (m && h.indexOf('comment_id') < 0) { pid = m[1]; tlab = (a.getAttribute('aria-label') || a.innerText || '').trim(); break; }
+    }
+    if (!pid) {
+      for (const a of post.querySelectorAll('a[href]')) {
+        const m = (a.getAttribute('href') || '').match(/set=pcb\.(\d+)/);
+        if (m) { pid = m[1]; break; }
+      }
+    }
+    for (const a of post.querySelectorAll('a[href]')) {
+      const m = (a.getAttribute('href') || '').match(/\/groups\/[^/?]+\/user\/(\d+)/);
+      if (m) { fb = m[1]; name = (a.innerText || '').trim(); if (name) break; }
+    }
+    const head = txt.slice(0, 160);
+    const hrefTag = Array.from(post.querySelectorAll('a[href*="/hashtag/"]')).some(h => decodeURIComponent(h.getAttribute('href') || '').indexOf('/hashtag/' + tag) >= 0);
+    out.push({ pid: pid, fb: fb, name: name, t: tlab, admin: /管理員|版主|Admin|Moderator/.test(head),
+               anon: /匿名成員|Anonymous member/.test(head), tagged: tagRe.test(txt) || hrefTag, head: head.replace(/\s+/g, ' ').slice(0, 60) });
+  }
+  return out;
+}
+"""
+
+def feed_due(cfg, st):
+    """該不該掃社團：凌晨 1–7 點不掃；兩次之間隔 FEED_MIN±10 分鐘（隨機）；被 FB 擋過就不掃"""
+    import random
+    if st.get('feed_blocked'): return False
+    h = datetime.now().hour
+    if int(cfg.get('FEED_QUIET_FROM', 1)) <= h < int(cfg.get('FEED_QUIET_TO', 7)): return False
+    return time.time() >= st.get('feed_next', 0)
+
+def feed_scan(page, cfg, st, test=False):
+    """開社團（新貼文排序）捲幾下，把 #中碳日 貼文送後端（action=relay_tag_scan）"""
+    import random
+    m = re.search(r'/groups/(\d+)', cfg['POST_URL'])
+    if not m: return
+    gid = m.group(1)
+    st['feed_next'] = time.time() + 60 * (int(cfg.get('FEED_MIN', 60)) + random.randint(-10, 10))
+    page.goto(f'https://www.facebook.com/groups/{gid}/?sorting_setting=CHRONOLOGICAL', wait_until='domcontentloaded', timeout=60000)
+    page.wait_for_timeout(5000)
+    if 'checkpoint' in page.url or 'login' in page.url or page.locator('input[name="email"]').count() > 0:
+        st['feed_blocked'] = datetime.now().strftime('%Y-%m-%d %H:%M'); save_state(st)
+        log('掃社團時 FB 要求驗證／登入，先停止掃社團（置頂文照常）。處理好後刪掉 state.json 裡的 feed_blocked 再重啟。')
+        return
+    seen = {}
+    for i in range(int(cfg.get('FEED_SCROLLS', 8))):
+        try:
+            page.evaluate(FEED_HOVER_JS); page.wait_for_timeout(1200)
+            try:
+                if page.evaluate(SEE_MORE_JS): page.wait_for_timeout(800)
+            except Exception: pass
+            for x in page.evaluate(FEED_JS, {'tag': cfg.get('TAG', '中碳日'), 'gid': gid}):
+                k = x['pid'] or x['head']
+                if k not in seen or (x['pid'] and not seen[k].get('pid')): seen[k] = x
+        except Exception as e:
+            log(f'讀社團貼文出錯：{e!r}')
+        page.mouse.wheel(0, 1800); page.wait_for_timeout(1800 + random.randint(0, 1200))
+    now = datetime.now(); today = now.strftime('%Y-%m-%d')
+    first = not st.get('feed_init')
+    done = st.setdefault('feed_sent', {})
+    rows, skipped = [], 0
+    for x in seen.values():
+        if test:
+            log(f"  [{'#中碳日' if x['tagged'] else '      '}] pid={x['pid'] or '?'} fb={x['fb'] or '?'} {x['name'][:10]} 時間='{x['t'][:16]}' 管理員={x['admin']} 匿名={x['anon']} | {x['head'][:40]}")
+        if not x['tagged'] or not x['pid'] or not x['fb'] or x['admin'] or x['anon'] or x['pid'] in done: continue
+        d = parse_fb_time(x['t'], now) if x['t'] else None
+        if not d:
+            if first: skipped += 1; continue   # 第一次掃、看不出日期的舊貼文交給早上的排程
+            d = today
+        rows.append(f"{d}｜{x['fb']}｜{x['name'].replace('｜', ' ').replace(';', ' ')}｜{x['pid']}")
+    log(f'社團最新貼文 {len(seen)} 篇，其中 #中碳日 新的 {len(rows)} 篇' + (f'（看不出日期略過 {skipped} 篇）' if skipped else ''))
+    if test:
+        for r in rows: log('  會送：' + r)
+        return
+    if rows:
+        res = send_rows(cfg, 'relay_tag_scan', ';;'.join(rows))
+        log(f'  → 後端：{res[:160]}')
+        try:
+            if json.loads(res).get('ok'):
+                for r in rows: done[r.split('｜')[3]] = today
+        except Exception: pass
+    st['feed_init'] = today
+    # 只留最近 7 天的紀錄
+    cut = (now.timestamp() - 7 * 86400)
+    for k in [k for k, v in done.items() if datetime.strptime(v, '%Y-%m-%d').timestamp() < cut]: done.pop(k, None)
+    save_state(st)
+
+def send_rows(cfg, action, rows):
+    q = urllib.parse.urlencode({'key': cfg['API_KEY'], 'action': action, 'rows': rows})
+    url = cfg['EXEC_URL'] + ('&' if '?' in cfg['EXEC_URL'] else '?') + q
+    req = urllib.request.Request(url, headers={'User-Agent': 'relay-watcher'})
+    with urllib.request.urlopen(req, timeout=60) as r:
+        return r.read().decode('utf-8', 'ignore')
+
 def wait_login(page):
     log('請在開啟的瀏覽器視窗登入 Facebook（a0937 金鶯診所帳號）。登入完成後不用做別的事，程式會自己繼續。')
     page.goto('https://www.facebook.com/', wait_until='domcontentloaded')
@@ -235,6 +357,9 @@ def main():
         ctx = p.chromium.launch_persistent_context(PROFILE, headless=False, locale='zh-TW',
                                                    viewport={'width': 1100, 'height': 900}, args=['--disable-blink-features=AutomationControlled'])
         page = ctx.pages[0] if ctx.pages else ctx.new_page()
+        if '--feedtest' in sys.argv:
+            log('測試：掃一次社團最新貼文，只印結果、不送出。')
+            feed_scan(page, cfg, st, test=True); input('按 Enter 離開'); return
         if '--login' in sys.argv:
             wait_login(page); log('登入完成，可以關閉視窗，之後雙擊「啟動.bat」開始掃描。'); input('按 Enter 離開'); return
         log(f'開始掃描，每 {cfg["INTERVAL_SEC"]} 秒一次。關掉這個視窗就停止。')
@@ -262,6 +387,9 @@ def main():
                 else:
                     log(f'留言含完賽碼 {len(found)} 則，沒有新的。')
                 recheck_due(page, cfg, st)
+                if feed_due(cfg, st):
+                    try: feed_scan(page, cfg, st)
+                    except Exception as e: log(f'掃社團出錯：{e!r}，下次再試')
             except Exception as e:
                 log(f'這輪出錯：{e!r}，{cfg["INTERVAL_SEC"]} 秒後重試')
             time.sleep(int(cfg['INTERVAL_SEC']))
