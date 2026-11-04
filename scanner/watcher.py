@@ -114,7 +114,7 @@ POSTDATES_JS = r"""
 (tag) => {
   // 社團個人頁：每篇貼文(role=article，不含留言)取時間連結文字＋是否帶標籤
   const out = [];
-  const tagRe = tag ? new RegExp('[#＃]\\s*' + tag) : null;
+  const tagRe = tag ? new RegExp('[#＃]\\s*' + tag + '|' + tag + '\\s*day\\s*[0-9０-９]', 'i') : null;  // #中碳日 或 中碳日 Day N
   for (const art of document.querySelectorAll('div[role="article"]')) {
     if (art.parentElement && art.parentElement.closest('div[role="article"]')) continue; // 留言
     const a = art.querySelector('a[href*="/posts/"], a[href*="/permalink/"]');
@@ -222,7 +222,7 @@ FEED_JS = r"""
 (args) => {
   // 社團最新貼文：FB 列表沒有貼文 ID，只取作者 ID、名字、內文（去掉 FB 的干擾字）、有沒有 #中碳日
   const tag = args.tag;
-  const tagRe = new RegExp('[#＃]\\s*' + tag);
+  const tagRe = new RegExp('[#＃]\\s*' + tag + '|' + tag + '\\s*day\\s*[0-9０-９]', 'i');  // #中碳日 或 中碳日 Day N
   let list = Array.from(document.querySelectorAll('[aria-posinset]'));
   if (!list.length) list = Array.from(document.querySelectorAll('div[role="feed"] > div'));
   const out = [];
