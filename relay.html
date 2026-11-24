@@ -194,7 +194,7 @@ function renderLanding(){
     + '<div class="video" id="vid"><img src="https://i.ytimg.com/vi/' + VIDEO_ID + '/maxresdefault.jpg" onerror="this.onerror=null;this.src=\'https://i.ytimg.com/vi/' + VIDEO_ID + '/hqdefault.jpg\'" alt="蕭捷健醫師影片">'
     + '<div class="badge">蕭捷健醫師<br>邀你一起挑戰三日中碳</div><div class="play"></div></div>'
     + '<div class="sec">完賽好禮</div>'
-    + '<div class="gifts"><div class="gift"><div class="pic"><img src="https://cdn-general.cybassets.com/media/W1siZiIsIjI0ODg4L3Byb2R1Y3RzLzU4NjgwNDU1LzE3NzA1NTcyOTVfZDA4NTRiZWRlY2NlOTg5ZWViMjQuanBlZyJdLFsicCIsInRodW1iIiwiMjA0OHgyMDQ4Il1d.jpeg?sha=3a0c8622963b57c3" alt="白巧草莓蛋白棒"></div><h4>白巧草莓蛋白棒</h4><p>1 盒・效期至 2027/1/15</p></div>'
+    + '<div class="gifts"><div class="gift"><div class="pic"><img src="https://cdn-general.cybassets.com/media/W1siZiIsIjI0ODg4L3Byb2R1Y3RzLzU4NjgwNDU1LzE3NzA1NTcyOTVfZDA4NTRiZWRlY2NlOTg5ZWViMjQuanBlZyJdLFsicCIsInRodW1iIiwiMjA0OHgyMDQ4Il1d.jpeg?sha=3a0c8622963b57c3" alt="白巧草莓蛋白棒"></div><h4>白巧草莓蛋白棒</h4><p>1 盒（價值 $480）・效期至 2027/1/15</p></div>'
     + '<div class="gift"><div class="pic ticket"><div class="tk"><small>現金券</small><b>$300</b><i></i></div></div><h4>$300 現金券</h4><p>滿 $1,500 可用</p></div></div>'
     + '<div class="stats" id="stats" style="display:none"><div class="stat"><b id="sJoin">–</b><span>人已報名</span></div><div class="stat"><b id="sFin">–</b><span>人已完賽</span></div></div>'
     + '<button type="button" class="btn cta" id="join">我要參加</button>'
@@ -247,7 +247,7 @@ function renderMain(d, flash){
     h += '<div style="border-top:1px dashed var(--line);margin:16px 0 4px"></div><p class="step"><span class="num">1</span>先複製 NT$300 現金券序號</p>'
       + '<div class="code"><b id="c300">' + esc(d.c300) + '</b><button type="button" class="btn small" id="cp3">複製</button></div>'
       + '<p class="note" style="margin-top:0">同一筆訂單滿 $1,500 可用，結帳時貼上。限用一次，2027/1/31 前。</p>'
-      + '<p class="step"><span class="num">2</span>到完賽禮商店，領白巧草莓蛋白棒 1 盒</p>'
+      + '<p class="step"><span class="num">2</span>到完賽禮商店，領白巧草莓蛋白棒 1 盒（價值 $480，免費）</p>'
       + '<a class="btn cta" id="bar" href="' + esc(d.barUrl || STORE_URL) + '" target="_blank" rel="noopener">領取完賽禮 ›</a>'
       + '<p class="note">會用手機瀏覽器打開。蛋白棒加入購物車即可（每單限 1 盒）；運費 $100，同筆滿 $2,500 免運。結帳時在優惠碼欄貼上第 1 步的序號。</p>';
   }
@@ -266,7 +266,7 @@ function renderMain(d, flash){
     }
     h += '</section>';
     h += '<section class="hero" style="padding-top:18px"><h2 style="font-size:19px">🎁 系統確認後即可領獎</h2><div class="prize" style="margin-top:12px">'
-      + '<div><b>🍓 白巧草莓蛋白棒</b>到完賽禮商店領取<br>效期至 2027/1/15</div><div><b>💰 $300 現金券</b>滿 $1,500 可用<br>期限至 2027/1/31</div></div></section>';
+      + '<div><b>🍓 白巧草莓蛋白棒</b>1 盒・價值 $480<br>到完賽禮商店免費領<br>效期至 2027/1/15</div><div><b>💰 $300 現金券</b>滿 $1,500 可用<br>期限至 2027/1/31</div></div></section>';
   }
 
   h += '<div id="oa"></div>';
