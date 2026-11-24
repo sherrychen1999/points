@@ -223,7 +223,7 @@ function renderMain(d, flash){
   var waiting = st === '待留言', checking = st === '核對中', done = !!d.claimed && !waiting && !checking;
   var h = head(done ? '完賽禮領取' : '活動說明');
   if (flash) h += '<div class="flash">' + esc(flash) + '</div>';
-  if (done) h += '<a class="banner red" id="bn" href="' + esc(d.barUrl || STORE_URL) + '" target="_blank" rel="noopener">🎉 完賽確認！完賽禮送到了 ›</a>';
+  if (done) h += '';
   else if (waiting) h += '';
   else if (checking) h += '<div class="banner">⏳ 已收到留言，系統核對中</div>';
   else h += '<a class="banner" href="' + GROUP_URL + '" target="_blank" rel="noopener">🎉 報名成功！今天就發第一篇中碳餐吧 ›</a>';
