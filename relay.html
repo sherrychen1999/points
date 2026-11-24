@@ -230,7 +230,7 @@ function renderMain(d, flash){
 
   var s1 = d.claimed ? ' class="done"' : '', s2 = d.claimed ? ' class="done"' : '', s3 = done ? ' class="done"' : '';
   h += '<section class="hero" style="padding-top:18px"><h2 style="font-size:19px">✅ 參加只要 3 步驟</h2><ol class="steps">'
-    + '<li' + s1 + '><span class="n">1</span><span>連續 3 天在社團發中碳餐食照，每篇加上 <b>#中碳日</b></span></li>'
+    + '<li' + s1 + '><span class="n">1</span><span>連續 3 天在社團發中碳餐食照，每篇加上 <b>#三日中碳接力賽</b></span></li>'
     + '<li' + s2 + '><span class="n">2</span><span>完賽後按下方按鈕，複製完賽留言</span></li>'
     + '<li' + s3 + '><span class="n">3</span><span>留言到活動貼文，並 @ 一位朋友接棒</span></li></ol>';
 
@@ -242,7 +242,7 @@ function renderMain(d, flash){
       + '<button type="button" class="btn small" id="cp1">複製完賽留言</button>'
       + '<a class="btn dark" href="' + esc(d.postUrl) + '" target="_blank" rel="noopener">前往活動貼文' + (waiting ? '留言' : '') + '</a>'
       + '<p class="note">' + (waiting ? '把「＿公斤」改成你的數字、@ 一位朋友。末尾的 #' + esc(d.code) + ' 是你的完賽碼，請保留。<br><b>留言後約 5 分鐘</b>，回到這頁就會看到結果（停在這頁會自動更新）。'
-        : '系統讀到的發文：' + esc(d.reason || '') + '<br>連續 3 天發文、每篇加 <b>#中碳日</b>，系統每小時重新核對，達成後按鈕會變成「領取完賽禮」，不用再留言。') + '</p>';
+        : '系統讀到的發文：' + esc(d.reason || '') + '<br>連續 3 天發文、每篇加 <b>#三日中碳接力賽</b>，系統每小時重新核對，達成後按鈕會變成「領取完賽禮」，不用再留言。') + '</p>';
   } else {
     h += '<div style="border-top:1px dashed var(--line);margin:16px 0 4px"></div><p class="step"><span class="num">1</span>先複製 NT$300 現金券序號</p>'
       + '<div class="code"><b id="c300">' + esc(d.c300) + '</b><button type="button" class="btn small" id="cp3">複製</button></div>'
@@ -307,7 +307,7 @@ function render(d, flash){
     var failed = d.status === '已作廢' || d.status === '逾期' || d.status === '未通過';
     if (failed) {
       app.innerHTML = head('完賽禮領取') + '<section class="card red"><h2>' + (d.status === '逾期' ? '領取已逾期' : '這次沒有通過核對') + '</h2><p class="muted">'
-        + (d.status === '逾期' ? '領取後 7 天內沒有在活動貼文留言，這次領取已失效。' : '我們沒有在社團找到你連續三天、帶 #中碳日 的發文紀錄。')
+        + (d.status === '逾期' ? '領取後 7 天內沒有在活動貼文留言，這次領取已失效。' : '我們沒有在社團找到你連續三天、帶 #三日中碳接力賽 的發文紀錄。')
         + (d.reason ? '<br>' + esc(d.reason) : '') + '<br>有疑問請直接在 LINE 留言給小編。</p></section>';
       return;
     }
